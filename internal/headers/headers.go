@@ -3,15 +3,29 @@ package headers
 import (
 	"bytes"
 	"fmt"
+	"strings"
 )
 
-type Headers map[string]string
+func isToken(str string) bool {
+	for _, ch := range str {
+		found := false
+		if ch >= 'A' && ch <= 'Z' ||
+			ch >= 'a' && ch <= 'z' ||
+			ch >= '0' && ch <= '9' {
+			found = true
+		}
+		switch ch {
+		case '#', '$', '&', '%', '\'',  '*', '+', '-', '.', '^', '_','`','|', '~':
+			found = true
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
 
 var rn = []byte("\r\n")
-
-func NewHeaders() Headers {
-	return map[string]string{}
-}
 
 func parseHeader(fieldLine []byte) (string, string, error) {
 	parts := bytes.SplitN(fieldLine, []byte(":"), 2)
@@ -22,21 +36,51 @@ func parseHeader(fieldLine []byte) (string, string, error) {
 	name := parts[0]
 	value := bytes.TrimSpace(parts[1])
 
-	if bytes.HasSuffix(name,[]byte(" ")){
-		return "","", fmt.Errorf("malformed filed name")
+	if bytes.HasSuffix(name, []byte(" ")) {
+		return "", "", fmt.Errorf("malformed filed name")
 	}
-	return string(name),string(value),nil
+	return string(name), string(value), nil
 }
 
-func (h Headers) Parse(data []byte) (int, bool, error) {
+type Headers struct {
+	headers map[string]string
+}
+
+func NewHeaders() *Headers {
+	return &Headers{
+		headers: map[string]string{}}
+}
+
+func (h *Headers) Get(name string) (string,bool) {
+	str, ok := h.headers[strings.ToLower(name)]
+	return str, ok
+}
+func (h *Headers) Set(name, value string) {
+	name = strings.ToLower(name)
+
+	if v, ok := h.headers[name]; ok {
+		h.headers[name] = fmt.Sprintf("%s, %s", v, value)
+	} else {
+		h.headers[name] = value
+	}
+}
+
+func (h *Headers) ForEach(cb func(n, v string)) {
+	for n, v := range h.headers {
+		cb(n, v)
+	}
+}
+
+func (h *Headers) Parse(data []byte) (int, bool, error) {
 	read := 0
 	done := false
 
 	for {
-		idx := bytes.Index(data[read:],rn)
+		idx := bytes.Index(data[read:], rn)
 		if idx == -1 {
 			break
 		}
+		end := read + idx
 
 		// EMPTY HEADER
 		if idx == 0 {
@@ -45,15 +89,18 @@ func (h Headers) Parse(data []byte) (int, bool, error) {
 			break
 		}
 
-		fmt.Printf("header :\"%s\n",string(data[read:idx]))
+		fmt.Printf("header :\"%s\n", string(data[read:end]))
 
-		name, value, err := parseHeader(data[read:read+idx])
-		if err  != nil {
-			return 0,false, err
+		name, value, err := parseHeader(data[read:end])
+		if err != nil {
+			return 0, false, err
 		}
 
+		if !isToken(name) {
+			return 0, false, fmt.Errorf("malformed header name")
+		}
 		read += idx + len(rn)
-		h[name] = value
+		h.Set(name,value)
 	}
-	return read, done,nil
+	return read, done, nil
 }
