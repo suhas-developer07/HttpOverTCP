@@ -15,7 +15,7 @@ type parserState string
 const (
 	StateInit    parserState = "init"
 	StateHeaders parserState = "headers"
-	StateBody   parserState = "body"
+	StateBody    parserState = "body"
 	StateDone    parserState = "done"
 	StateError   parserState = "error"
 )
@@ -23,6 +23,7 @@ const (
 type Request struct {
 	RequestLine RequestLine
 	Headers     *headers.Headers
+	Body        string
 	state       parserState
 }
 
@@ -37,9 +38,9 @@ var ErrUnsupportedHTTPVersion = fmt.Errorf("unsupported http version")
 var ErrorRequestInErrorState = fmt.Errorf("request in error state")
 var SEPERATOR = []byte("\r\n")
 
-func getInt(headers headers.Headers, name string, defaultValue int) int {
+func getInt(headers *headers.Headers, name string, defaultValue int) int {
 
-	valueStr,exists := headers.Get()
+	valueStr, exists := headers.Get(name)
 	if !exists {
 		return defaultValue
 	}
@@ -54,6 +55,7 @@ func newRequest() *Request {
 	return &Request{
 		state:   StateInit,
 		Headers: headers.NewHeaders(),
+		Body:    "",
 	}
 }
 func parseRequestLine(b []byte) (*RequestLine, int, error) {
@@ -85,12 +87,20 @@ func parseRequestLine(b []byte) (*RequestLine, int, error) {
 	return rl, read, nil
 }
 
+func (r *Request) hasBody() bool {
+	//TODO : when doing chunked encoding, update this method
+	length := getInt(r.Headers,"content-length",0)
+	return length > 0
+}
 func (r *Request) parse(data []byte) (int, error) {
 
 	read := 0
 outer:
 	for {
 		currentData := data[read:]
+		if len(currentData) == 0 {
+			break outer
+		}
 		switch r.state {
 		case StateError:
 			return 0, ErrorRequestInErrorState
@@ -112,6 +122,7 @@ outer:
 			slog.Info("Requesting#parse state-headers", "read", read)
 			n, done, err := r.Headers.Parse(currentData)
 			if err != nil {
+				r.state = StateError
 				return 0, err
 			}
 
@@ -121,10 +132,24 @@ outer:
 
 			read += n
 			if done {
-				r.state = StateDone
+				if r.hasBody(){
+					r.state = StateBody
+				}else {
+					r.state = StateDone
+				}
 			}
 		case StateBody:
 			// Parse body
+			length := getInt(r.Headers, "content-length", 0)
+			if length == 0 {
+				panic("chunked not implemented")
+			}
+			remaining := min(length-len(r.Body), len(currentData))
+			r.Body += string(currentData[:remaining])
+			read += remaining
+			if len(r.Body) == length {
+				r.state = StateDone
+			}
 		case StateDone:
 			break outer
 		default:
