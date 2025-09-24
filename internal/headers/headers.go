@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 )
+//validate header names per HTTP spec
 
 func isToken(str string) bool {
 	for _, ch := range str {
@@ -50,6 +51,7 @@ func NewHeaders() *Headers {
 	return &Headers{
 		headers: map[string]string{}}
 }
+//manage header values
 
 func (h *Headers) Get(name string) (string,bool) {
 	str, ok := h.headers[strings.ToLower(name)]
@@ -81,7 +83,7 @@ func (h *Headers) ForEach(cb func(n, v string)) {
 		cb(n, v)
 	}
 }
-
+//converts raw bytes to header map
 func (h *Headers) Parse(data []byte) (int, bool, error) {
 	read := 0
 	done := false

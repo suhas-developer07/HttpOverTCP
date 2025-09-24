@@ -12,7 +12,9 @@ func main() {
 	listener, err := net.Listen("tcp", ":42069")
 	if err != nil {
 		log.Fatal("errorooooooo", "error", err)
+
 	}
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {

@@ -7,6 +7,7 @@ import (
 	"github.com/suhasdeveloper07/httpovertcp/internal/headers"
 )
 
+// write HTTP responses back to TCP conncetion
 type Response struct {
 }
 
@@ -26,13 +27,12 @@ func GetDefaultHeaders(contentLen int) *headers.Headers {
 	return h
 }
 
-
 type Writer struct {
 	writer io.Writer
 }
 
-func NewWriter(writer io.Writer) *Writer{
-	return  &Writer{
+func NewWriter(writer io.Writer) *Writer {
+	return &Writer{
 		writer: writer,
 	}
 }
@@ -53,7 +53,7 @@ func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
 	return err
 }
 func (w *Writer) WriteHeaders(h headers.Headers) error {
-		b := []byte{}
+	b := []byte{}
 	h.ForEach(func(n, v string) {
 		b = fmt.Appendf(b, "%s: %s\r\n", n, v)
 	})
@@ -62,8 +62,8 @@ func (w *Writer) WriteHeaders(h headers.Headers) error {
 	return err
 }
 
-func (w *Writer) WriteBody(p []byte) (int, error){
-	n,err := w.writer.Write(p)
+func (w *Writer) WriteBody(p []byte) (int, error) {
+	n, err := w.writer.Write(p)
 
-	return n,err
+	return n, err
 }

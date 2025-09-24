@@ -9,7 +9,7 @@ import (
 
 	"github.com/suhasdeveloper07/httpovertcp/internal/headers"
 )
-
+//parse the incoming http request
 type parserState string
 
 const (
@@ -92,6 +92,7 @@ func (r *Request) hasBody() bool {
 	length := getInt(r.Headers,"content-length",0)
 	return length > 0
 }
+//state machine
 func (r *Request) parse(data []byte) (int, error) {
 
 	read := 0
@@ -153,7 +154,7 @@ outer:
 		case StateDone:
 			break outer
 		default:
-			panic("somehow we have programmed poorly")
+			panic("somehow i have programmed poorly")
 		}
 	}
 	return read, nil
@@ -161,7 +162,7 @@ outer:
 func (r *Request) done() bool {
 	return r.state == StateDone || r.state == StateError
 }
-
+// reades tcp stream and builds Request object
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	request := newRequest()
 
